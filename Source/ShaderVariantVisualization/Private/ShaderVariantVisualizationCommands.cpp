@@ -6,7 +6,7 @@
 
 void FShaderVariantVisualizationCommands::RegisterCommands()
 {
-	UI_COMMAND(OpenPluginWindow, "SVV", "Visual Shader Variant", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(OpenPluginWindow, "SVV", "Bring up ShaderVariantVisualization window", EUserInterfaceActionType::Button, FInputGesture());
 }
 
 #undef LOCTEXT_NAMESPACE

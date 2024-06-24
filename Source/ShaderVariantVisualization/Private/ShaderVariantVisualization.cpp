@@ -1,23 +1,43 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "ShaderVariantVisualization.h"
+
+#include "IMaterialEditor.h"
 #include "ShaderVariantVisualizationStyle.h"
 #include "ShaderVariantVisualizationCommands.h"
 #include "LevelEditor.h"
+#include "MaterialEditorModule.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Text/STextBlock.h"
 #include "ToolMenus.h"
+#include "Materials/MaterialInstance.h"
+#include "ShaderVariantWidget.h"
 
-#include "IMaterialEditor.h"
-#include "EditorStyleSet.h"
-#include "Widgets/Layout/SScrollBox.h"
-#include "Widgets/Layout/SExpandableArea.h"
+#include "ShaderVariant.h"
 
 static const FName ShaderVariantVisualizationTabName("ShaderVariantVisualization");
-static const FName ShaderVariantVisualizationTabNameAbbreviation("SVV");
 
 #define LOCTEXT_NAMESPACE "FShaderVariantVisualizationModule"
+
+
+FShaderVariantVisualizationModule::FShaderVariantVisualizationModule()
+	:	CurrentMaterialEditorPtr(nullptr),
+		CurrentMaterialInterfacePtr(nullptr)
+{
+	IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
+	MaterialEditorModule.OnMaterialInstanceEditorOpened().AddRaw(this, &FShaderVariantVisualizationModule::OnMaterialInstanceEditorOpened);
+	MaterialEditorModule.OnMaterialEditorOpened().AddRaw(this, &FShaderVariantVisualizationModule::OnMaterialEditorOpened);
+}
+
+FShaderVariantVisualizationModule::~FShaderVariantVisualizationModule()
+{
+	IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
+	MaterialEditorModule.OnMaterialInstanceEditorOpened().RemoveAll(this);
+	MaterialEditorModule.OnMaterialEditorOpened().RemoveAll(this);
+
+	
+}
 
 void FShaderVariantVisualizationModule::StartupModule()
 {
@@ -38,7 +58,7 @@ void FShaderVariantVisualizationModule::StartupModule()
 	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FShaderVariantVisualizationModule::RegisterMenus));
 	
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(ShaderVariantVisualizationTabName, FOnSpawnTab::CreateRaw(this, &FShaderVariantVisualizationModule::OnSpawnPluginTab))
-		.SetDisplayName(LOCTEXT("FShaderVariantVisualizationTabTitle", "Shader Variant"))
+		.SetDisplayName(LOCTEXT("FShaderVariantVisualizationTabTitle", "ShaderVariantVisualization"))
 		.SetMenuType(ETabSpawnerMenuType::Hidden);
 }
 
@@ -55,108 +75,101 @@ void FShaderVariantVisualizationModule::ShutdownModule()
 
 	FShaderVariantVisualizationCommands::Unregister();
 
-	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(ShaderVariantVisualizationTabName);
+	if(FGlobalTabmanager::Get()->HasTabSpawner(ShaderVariantVisualizationTabName))
+	{
+		FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(ShaderVariantVisualizationTabName);
+	}
 }
 
 TSharedRef<SDockTab> FShaderVariantVisualizationModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
 {
-	FButtonStyle ButtonStyle = FButtonStyle()
-	.SetNormal(FSlateColorBrush(FColor::Red)) // 设置正常状态下的颜色为红色
-	.SetHovered(FSlateColorBrush(FColor::Green)) // 设置鼠标悬停状态下的颜色为绿色
-	.SetPressed(FSlateColorBrush(FColor::Blue)); // 设置按下状态下的颜色为蓝色
-
-	FText WidgetText = FText::Format(
-		LOCTEXT("WindowWidgetText", "Add code to {0} in {1} to override this window's contents"),
-		FText::FromString(TEXT("FShaderVariantVisualizationModule::OnSpawnPluginTab")),
-		FText::FromString(TEXT("ShaderVariantVisualization.cpp"))
-		);
-
-	TSharedPtr<SDockTab> DetailsTab = SNew(SDockTab)
-		.Icon( FEditorStyle::GetBrush("LevelEditor.Tabs.Details") )
+	if(!CurrentMaterialInterfacePtr)
+	{
+		return SNew(SDockTab)
+			.TabRole(ETabRole::NomadTab)
+			[
+				// Put your tab content here!
+				SNew(SBox)
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(TEXT("There isn't material or material instance available now!")))
+				]
+			];
+	}
+	
+	return SNew(SDockTab)
 		.TabRole(ETabRole::NomadTab)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			/*.SlotPadding(FMargin(0))
-			.SizeParam( FSizeParam(FSizeParam::SizeRule_Auto, 0.0f) )*/
-			.Padding(2)
-			[
-				SNew(SButton)
-				.HAlign(HAlign_Center)
-				.VAlign(VAlign_Center)
-				.OnClicked(FOnClicked::CreateRaw(this, &FShaderVariantVisualizationModule::ButtonClicked))
-				[
-					SNew(STextBlock)
-					.Text(FText::FromString(TEXT("Test Text1")))
-				]
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(2)
-			[
-				SNew(SButton)
-				.HAlign(HAlign_Center)
-				.VAlign(VAlign_Center)
-				.OnClicked(FOnClicked::CreateRaw(this, &FShaderVariantVisualizationModule::ButtonClicked))
-				[
-					SNew(STextBlock)
-					.Text(FText::FromString(TEXT("Test Text2")))
-				]
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(2)
-			[
-				SNew(SExpandableArea)
-				.InitiallyCollapsed(false)
-				.BorderImage( FEditorStyle::GetBrush( "ToolBar.Background" ) )
-				.Padding(8.0f)
-				.HeaderContent()
-				[
-				  SNew( STextBlock )
-				  .Text( NSLOCTEXT("MyWidget","CategoryHeader", "My Awesome Category") )
-				]
-				.BodyContent()
-				[
-					// ... Whatever content widgets ...
-					SNew(SVerticalBox)
-					+ SVerticalBox::Slot()
-					.AutoHeight()
-					.Padding(2)
-					[
-				
-						SNew(SBorder)
-						.Padding(2)
-						.Content()
-						[
-							SNew(STextBlock)
-							.Text(FText::FromString(TEXT("Test Text3")))
-						]
-					]
-					+ SVerticalBox::Slot()
-					.AutoHeight()
-					.Padding(2)
-					[
-						SNew(SButton)
-						.HAlign(HAlign_Center)
-						.VAlign(VAlign_Center)
-						.OnClicked(FOnClicked::CreateRaw(this, &FShaderVariantVisualizationModule::ButtonClicked))
-						[
-							SNew(STextBlock)
-							.Text(FText::FromString(TEXT("Test Text4")))
-						]
-					]
-				]
-			]
+			SNew(SShaderVariantWidget)
+			.ShaderVariantPtr(ShaderVariant)
 		];
-	
-	return DetailsTab.ToSharedRef();
+}
+
+
+
+void FShaderVariantVisualizationModule::OnMaterialInstanceEditorOpened(TWeakPtr<IMaterialEditor> MaterialEditor)
+{
+	if (MaterialEditor.IsValid()) 
+	{
+		TSharedPtr<IMaterialEditor> MaterialEditorSharedPtr = MaterialEditor.Pin();
+		
+		CurrentMaterialEditorPtr = MaterialEditorSharedPtr.Get();
+		
+		CurrentMaterialEditorPtr->OnMaterialEditorClosed().AddRaw(this, &FShaderVariantVisualizationModule::OnMaterialInstanceEditorClosed);
+	}
+}
+
+void FShaderVariantVisualizationModule::OnMaterialEditorOpened(TWeakPtr<IMaterialEditor> MaterialEditor)
+{
+	if (MaterialEditor.IsValid()) 
+	{
+		TSharedPtr<IMaterialEditor> MaterialEditorSharedPtr = MaterialEditor.Pin();
+		
+		CurrentMaterialEditorPtr = MaterialEditorSharedPtr.Get();
+		
+		CurrentMaterialEditorPtr->OnMaterialEditorClosed().AddRaw(this, &FShaderVariantVisualizationModule::OnMaterialInstanceEditorClosed);
+	}
+}
+
+void FShaderVariantVisualizationModule::OnMaterialInstanceEditorClosed()
+{
+	if(SvvSDockTab.IsValid())
+	{
+		SvvSDockTab->RequestCloseTab();
+	}
+}
+
+
+void FShaderVariantVisualizationModule::AddToolBarExtension(FToolBarBuilder& Builder)
+{
+	Builder.BeginSection(TEXT("Plugins"));
+	Builder.AddToolBarButton(FShaderVariantVisualizationCommands::Get().OpenPluginWindow);
+	Builder.EndSection();
+}
+
+void FShaderVariantVisualizationModule::AddMenuBarExtension(FMenuBarBuilder& Builder)
+{
+	Builder.AddMenuEntry(FShaderVariantVisualizationCommands::Get().OpenPluginWindow);
 }
 
 void FShaderVariantVisualizationModule::PluginButtonClicked()
 {
-	FGlobalTabmanager::Get()->TryInvokeTab(ShaderVariantVisualizationTabName);
+	CurrentMaterialInterfacePtr = CurrentMaterialEditorPtr->GetMaterialInterface();
+	
+	ShaderVariant = new FShaderVariant(CurrentMaterialInterfacePtr);
+	
+	SvvSDockTab = FGlobalTabmanager::Get()->FindExistingLiveTab(ShaderVariantVisualizationTabName);
+
+	if (!SvvSDockTab.IsValid())
+	{
+		SvvSDockTab = FGlobalTabmanager::Get()->TryInvokeTab(ShaderVariantVisualizationTabName);
+	}
+	else
+	{
+		FGlobalTabmanager::Get()->DrawAttention(SvvSDockTab.ToSharedRef());
+	}
 }
 
 void FShaderVariantVisualizationModule::RegisterMenus()
@@ -182,28 +195,25 @@ void FShaderVariantVisualizationModule::RegisterMenus()
 			}
 		}
 	}*/
-
+	
 	{
-		IMaterialEditorModule& MaterialEditor = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
+		IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
+		/*IMaterialEditorModule& MaterialEditorModule = IMaterialEditorModule::Get();*/
 		{
 			TSharedRef<FExtender>  MenuExtender = MakeShareable(new FExtender);
-			MenuExtender->AddMenuBarExtension("Help", EExtensionHook::After, PluginCommands, FMenuBarExtensionDelegate::CreateRaw(this, &FShaderVariantVisualizationModule::AddMenuExtension));
-			MaterialEditor.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
+			MenuExtender->AddToolBarExtension("Parent", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &FShaderVariantVisualizationModule::AddToolBarExtension));
+			MaterialEditorModule.GetToolBarExtensibilityManager()->AddExtender(MenuExtender);
 		}
 	}
-}
-
-FReply FShaderVariantVisualizationModule::ButtonClicked()
-{
-	UE_LOG(LogTemp, Warning, TEXT("Hello, Button!"));
-	return FReply::Handled();
-}
-
-void FShaderVariantVisualizationModule::AddMenuExtension(FMenuBarBuilder& Builder)
-{
-	//Builder.BeginSection(TEXT("MyButton"));
-	Builder.AddMenuEntry(FShaderVariantVisualizationCommands::Get().OpenPluginWindow);
-	//Builder.EndSection();
+	{
+		IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
+		/*IMaterialEditorModule& MaterialEditorModule = IMaterialEditorModule::Get();*/
+		{
+			TSharedRef<FExtender>  MenuExtender = MakeShareable(new FExtender);
+			MenuExtender->AddMenuBarExtension("Help", EExtensionHook::After, PluginCommands, FMenuBarExtensionDelegate::CreateRaw(this, &FShaderVariantVisualizationModule::AddMenuBarExtension));
+			MaterialEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

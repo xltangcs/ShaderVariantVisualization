@@ -3,11 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Modules/ModuleManager.h"
-
-#include "Input/Reply.h"
-#include "MaterialEditorModule.h"
-
 
 class FToolBarBuilder;
 class FMenuBuilder;
@@ -28,11 +23,25 @@ private:
 	void RegisterMenus();
 
 	TSharedRef<class SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
-
-private:
 	TSharedPtr<class FUICommandList> PluginCommands;
+	
+public:
+	FShaderVariantVisualizationModule();
+	virtual ~FShaderVariantVisualizationModule() override;
 
-	// Added Function
-	FReply ButtonClicked();
-	void AddMenuExtension(class FMenuBarBuilder& Builder);
+	// Event
+	void OnMaterialInstanceEditorOpened(TWeakPtr<class IMaterialEditor> MaterialEditor);
+	void OnMaterialEditorOpened(TWeakPtr<class IMaterialEditor> MaterialEditor);
+	void OnMaterialInstanceEditorClosed();
+	
+private:
+	void AddToolBarExtension(class FToolBarBuilder& Builder);
+	void AddMenuBarExtension(class FMenuBarBuilder& Builder);
+	
+	class IMaterialEditor* CurrentMaterialEditorPtr;
+	class UMaterialInterface* CurrentMaterialInterfacePtr;
+	TSharedPtr<SDockTab> SvvSDockTab;
+
+	class FShaderVariant* ShaderVariant;
+	
 };

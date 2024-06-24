@@ -41,9 +41,12 @@ public class ShaderVariantVisualization : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Slate",
-				"SlateCore",
+				"SlateCore", 
 				"EditorStyle",
 				"MaterialEditor",
+				"RHI",
+				"RenderCore",
+				
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

@@ -4,6 +4,9 @@
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SExpandableArea.h"
 #include "IMaterialEditor.h"
+#include "MaterialEditor/Private/MaterialEditor.h"
+#include "MaterialGraph/MaterialGraphNode.h"
+#include "MaterialGraph/MaterialGraphNode_Root.h"
 #include "Subsystems/AssetEditorSubsystem.h"
 
 #define PADDING_SIZE 4
@@ -14,12 +17,12 @@ SShaderVariantWidget::SShaderVariantWidget()
 
 SShaderVariantWidget::~SShaderVariantWidget()
 {
+	delete ShaderVariant;
 }
 
 void SShaderVariantWidget::Construct(const FArguments& Args)
 {
 	ShaderVariant = Args._ShaderVariantPtr;
-	MaterialExpression = Args._ShaderVariantPtr->OutExpressions;
 	ChildSlot
 	[
 		SAssignNew(TopScrollBox, SScrollBox)
@@ -126,8 +129,28 @@ void SShaderVariantWidget::GetWidgetFromShaderTypeNameField(FShaderTypeNameField
 		.Padding(PADDING_SIZE)
 		.HeaderContent()
 		[
-		  SNew(STextBlock )
-		  .Text(FText::FromName("Shader Type"))
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.Padding(PADDING_SIZE)
+			.HAlign(HAlign_Left)
+			[
+				SNew(STextBlock )
+				.Text(FText::FromName("Shader Type"))
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(PADDING_SIZE)
+			.HAlign(HAlign_Left)
+			[
+				SNew(SSpacer)
+				.Size(SPACER_SIZE)
+			]
+			+SHorizontalBox::Slot()
+			.Padding(PADDING_SIZE)
+			.HAlign(HAlign_Left)
+			[
+				SNew(STextBlock)
+				.Text(FText::AsNumber(ShaderTypeNameField->VariantNum))
+			]
 		]
 		.BodyContent()
 		[
@@ -139,7 +162,7 @@ void SShaderVariantWidget::GetWidgetFromShaderTypeNameField(FShaderTypeNameField
 	
 }
 
-void SShaderVariantWidget::GetWidgetFromStaticSwitchParameter(TMap<FName, bool> StaticSwitchParametersMap)
+void SShaderVariantWidget::GetWidgetFromStaticSwitchParameter(TMap<FName, TPair<UObject*, UMaterialExpression*>>& StaticSwitchParametersMap)
 {
 	TSharedPtr<SScrollBox> StaticSwitchParameterWidget;
 
@@ -182,34 +205,34 @@ void SShaderVariantWidget::GetWidgetFromStaticSwitchParameter(TMap<FName, bool> 
 			[
 				SNew(SButton)
 				.Text(FText::FromName(ParameterPair.Key))
-				.OnClicked(this, &SShaderVariantWidget::OnStaticSwitchParameterButtonClicked)
-			]
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(PADDING_SIZE)
-			[
-				SNew(SSpacer)
-				.Size(FVector2D(2.0))
-			]
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(PADDING_SIZE)
-			[
-				SNew(SCheckBox)
-				.IsChecked(ParameterPair.Value)
+				.OnClicked(this, &SShaderVariantWidget::OnStaticSwitchParameterButtonClicked, ParameterPair.Value)
 			]
 		];
 	}
 }
 
-FReply SShaderVariantWidget::OnStaticSwitchParameterButtonClicked()
+FReply SShaderVariantWidget::OnStaticSwitchParameterButtonClicked(TPair<UObject*, UMaterialExpression*> InMaterialExpression)
 {
 	UAssetEditorSubsystem* AssetEditorSubsystem = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
-	AssetEditorSubsystem->OpenEditorForAsset(ShaderVariant->CurrentParentMaterial);
-	
-	if(IMaterialEditor* MaterialEditor = (IMaterialEditor*)(AssetEditorSubsystem->FindEditorForAsset(ShaderVariant->CurrentMaterial, true)))
+	AssetEditorSubsystem->OpenEditorForAsset(InMaterialExpression.Key);
+
+	if (IMaterialEditor* MaterialEditor = (IMaterialEditor*)AssetEditorSubsystem->FindEditorForAsset(InMaterialExpression.Key, true))
 	{
-		MaterialEditor->JumpToExpression(ShaderVariant->OutExpressions[0]);
+		FMaterialEditor* MaterialEditorInstance = (FMaterialEditor*)MaterialEditor;
+		
+		// Attention：GetGraphEditor() native engine does not support, added in MaterialEditor.h line 588
+		for(auto& Node: MaterialEditorInstance->GetGraphEditor()->GetCurrentGraph()->Nodes)
+		{
+			if(Node->IsA<UMaterialGraphNode_Root>()) continue;
+			
+			const UMaterialGraphNode* GraphNode = Cast<UMaterialGraphNode>(Node);
+			if(GraphNode->MaterialExpression->GetMaterialExpressionId() == InMaterialExpression.Value->GetMaterialExpressionId())
+			{
+				InMaterialExpression.Value->GraphNode = Node;
+				MaterialEditorInstance->JumpToExpression(InMaterialExpression.Value);
+				return FReply::Handled();
+			}
+		}
 	}
 	
 	return FReply::Handled();
@@ -245,8 +268,28 @@ void SShaderVariantWidget::AddMapToScrollBox(TMap<FString, FShaderTypeNameField*
 				.Padding(PADDING_SIZE)
 				.HeaderContent()
 				[
-					SNew(STextBlock)
-					.Text(FText::FromString(Element.Key))
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.Padding(PADDING_SIZE)
+					.HAlign(HAlign_Left)
+					[
+						SNew(STextBlock)
+						.Text(FText::FromString(Element.Key))
+					]
+					+ SHorizontalBox::Slot()
+					.Padding(PADDING_SIZE)
+					.HAlign(HAlign_Left)
+					[
+						SNew(SSpacer)
+						.Size(SPACER_SIZE)
+					]
+					+SHorizontalBox::Slot()
+					.Padding(PADDING_SIZE)
+					.HAlign(HAlign_Left)
+					[
+						SNew(STextBlock)
+						.Text(FText::AsNumber(Element.Value->VariantNum))
+					]
 				]
 				.BodyContent()
 				[

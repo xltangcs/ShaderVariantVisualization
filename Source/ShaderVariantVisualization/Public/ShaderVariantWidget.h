@@ -23,15 +23,15 @@ public:
 private:
 	void GetWidgetFromVertexFactoryTypeNameMap(TMap<FName, TArray<FName>>& VertexFactoryTypeNameMap) const;
 	void GetWidgetFromShaderTypeNameField(FShaderTypeNameField* ShaderTypeNameField);
-	void GetWidgetFromStaticSwitchParameter(TMap<FName, bool> StaticSwitchParametersMap);
-
+	void GetWidgetFromStaticSwitchParameter(TMap<FName, TPair<UObject*, UMaterialExpression*>>& StaticSwitchParametersMap);
+	
+	
 	// Static Switch Parameter Button Clicked Event
-	FReply OnStaticSwitchParameterButtonClicked();
+	FReply OnStaticSwitchParameterButtonClicked(TPair<UObject*, UMaterialExpression*> InMaterialExpression);
 
 	void AddMapToScrollBox(TMap<FString, FShaderTypeNameField*>& ShaderTypeNameChildrenField, TSharedPtr<SScrollBox>& ScrollBox, int TreeLevel = 1);
 
 	TSharedPtr<SScrollBox> TopScrollBox;
 
-	TArray<UMaterialExpression*> MaterialExpression;
-	FShaderVariantPtr ShaderVariant;
+	FShaderVariantPtr ShaderVariant = nullptr;
 };

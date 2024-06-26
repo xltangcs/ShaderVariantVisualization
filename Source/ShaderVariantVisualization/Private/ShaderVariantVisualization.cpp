@@ -36,7 +36,7 @@ FShaderVariantVisualizationModule::~FShaderVariantVisualizationModule()
 	MaterialEditorModule.OnMaterialInstanceEditorOpened().RemoveAll(this);
 	MaterialEditorModule.OnMaterialEditorOpened().RemoveAll(this);
 
-	
+	delete ShaderVariant;
 }
 
 void FShaderVariantVisualizationModule::StartupModule()
@@ -200,20 +200,22 @@ void FShaderVariantVisualizationModule::RegisterMenus()
 		IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
 		/*IMaterialEditorModule& MaterialEditorModule = IMaterialEditorModule::Get();*/
 		{
-			TSharedRef<FExtender>  MenuExtender = MakeShareable(new FExtender);
+			TSharedRef<FExtender> MenuExtender = MakeShareable(new FExtender);
 			MenuExtender->AddToolBarExtension("Parent", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &FShaderVariantVisualizationModule::AddToolBarExtension));
 			MaterialEditorModule.GetToolBarExtensibilityManager()->AddExtender(MenuExtender);
 		}
 	}
-	{
+
+	// After " Help "
+	/*{
 		IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
-		/*IMaterialEditorModule& MaterialEditorModule = IMaterialEditorModule::Get();*/
+		/*IMaterialEditorModule& MaterialEditorModule = IMaterialEditorModule::Get();#1#
 		{
 			TSharedRef<FExtender>  MenuExtender = MakeShareable(new FExtender);
 			MenuExtender->AddMenuBarExtension("Help", EExtensionHook::After, PluginCommands, FMenuBarExtensionDelegate::CreateRaw(this, &FShaderVariantVisualizationModule::AddMenuBarExtension));
 			MaterialEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
 		}
-	}
+	}*/
 }
 
 #undef LOCTEXT_NAMESPACE

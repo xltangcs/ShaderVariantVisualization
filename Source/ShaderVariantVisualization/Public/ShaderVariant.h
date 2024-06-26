@@ -3,10 +3,11 @@
 
 struct FShaderTypeNameField
 {
-	FString ShaderTypeNameFieldString;
+	FString ShaderTypeNameFieldString = FString("Please Set Name");
 	TMap<FString, FShaderTypeNameField*> ShaderTypeNameChildrenField;
+	int VariantNum = 0;
 
-	FShaderTypeNameField(FString& ShaderTypeNameFieldString);
+	FShaderTypeNameField(FString& ShaderTypeNameFieldString, int InVariantNum = 0);
 
 	void InsertChildrenField(TArray<FString>& ChildrenField, int TypeFiledIndex = 0);
 };
@@ -22,36 +23,23 @@ public:
 	
 	TMap<FName, TArray<FName>>& GetVertexFactoryTypeNameMap() { return VertexFactoryTypeNameMap; }
 	FShaderTypeNameField* GetShaderTypeNameField() const { return ShaderTypeNameField; }
-	TMap<FName, bool>& GetStaticSwitchParametersMap() { return  StaticSwitchParametersMap; }
+	TMap<FName, TPair<UObject*, UMaterialExpression*>>& GetStaticSwitchParametersMap() { return  StaticSwitchParametersMap; }
 
-	
-	TArray<UMaterialExpression*> OutExpressions; //TODO: Private
-	
 private:
-	void ProcessShaderVariantMessages();
+	void ProcessShaderVariantMessages(const TMap<FShaderId, TShaderRef<FShader>>& InShaderMapList);
 	
-	void GetVertexFactoryType(FName& VertexFactoryTypeName, const FName& ShaderTypeName);
-	void GetShaderType(const FName& ShaderTypeName) const;
-	void GetStaticSwitchParameters(FStaticParameterSet& InSet);
-
-
+	void GetVertexFactoryType(const FName& VertexFactoryTypeName, const FName& ShaderTypeName);
+	void GetShaderType(const FName& ShaderTypeName, const FName& VertexFactoryTypeName) const ;
+	void GetStaticSwitchParameterFromArray(const TArray<UMaterialExpression*>& InExpressions, UObject* Asset = nullptr);
+	void GetStaticSwitchParameterFromExpression(UMaterialExpression* InExpressions, UObject* Asset = nullptr);
+	
 	ERHIFeatureLevel::Type CurrentFeatureLevel = ERHIFeatureLevel::Type::ES3_1;
 	EMaterialQualityLevel::Type CurrentQualityLevel = EMaterialQualityLevel::Low;
 	EShaderPlatform CurrentPlatform;
 	
-	TMap<FShaderId, TShaderRef<FShader>> ShaderMapList;
-	
 	TMap<FName, TArray<FName>> VertexFactoryTypeNameMap;
-	FShaderTypeNameField* ShaderTypeNameField;
-	TMap<FName, bool> StaticSwitchParametersMap;
-
-	// is compile finished
-	bool bCompilationFinished = false;
-
-public:
-	UMaterial* CurrentMaterial = nullptr;
-	UMaterial* CurrentParentMaterial = nullptr;
-	
+	FShaderTypeNameField* ShaderTypeNameField = nullptr;
+	TMap<FName, TPair<UObject*, UMaterialExpression*>> StaticSwitchParametersMap;
 };
 
 
